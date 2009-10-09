@@ -44,29 +44,27 @@ class Command(BaseCommand):
         log_levels = options.get('log_levels', [])
         quit_command = (sys.platform == 'win32') and 'CTRL-BREAK' or 'CONTROL-C'
 
+        if log_levels:
+            from django.utils.log import logger as django_logger
+            import logging
+            django_logger.addHandler(logging.StreamHandler())
+            for log_level in log_levels:
+                try:
+                    log_name, level = log_level.split(':')
+                except ValueError:
+                    raise CommandError("Invalid log level specified")
+                if level.isdigit():
+                    level = int(level)
+                else:
+                    level = getattr(logging, level.upper(), None)
+                    if level is None:
+                        raise CommandError("Invalid log level: %s" % level)
+                        sys.exit(1)
+                logging.getLogger(log_name).setLevel(level)
+
         def inner_run():
             from django.conf import settings
             from django.utils import translation
-
-            if log_levels:
-                from django.utils.log import logger as django_logger
-                import logging
-                django_logger.addHandler(logging.StreamHandler())
-                for log_level in log_levels:
-                    try:
-                        log_name, level = log_level.split(':')
-                    except ValueError:
-                        print "Invalid log level specified"
-                        sys.exit(1)
-                    if level.isdigit():
-                        level = int(level)
-                    else:
-                        level = getattr(logging, level.upper(), None)
-                        if level is None:
-                            print "Invalid log level: %s" % level
-                            sys.exit(1)
-                    logging.getLogger(log_name).setLevel(level)
-                    print "Logging: set %s to level %s" % (log_name, level)
 
             print "Validating models..."
             self.validate(display_num_errors=True)
