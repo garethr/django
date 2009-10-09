@@ -59,7 +59,6 @@ class Command(BaseCommand):
                     level = getattr(logging, level.upper(), None)
                     if level is None:
                         raise CommandError("Invalid log level: %s" % level)
-                        sys.exit(1)
                 logging.getLogger(log_name).setLevel(level)
 
         def inner_run():
