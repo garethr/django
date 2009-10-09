@@ -81,10 +81,13 @@ class BaseDatabaseWrapper(local):
         cursor = self._cursor()
         if settings.DEBUG:
             return self.make_debug_cursor(cursor)
-        return cursor
+        return self.make_logging_cursor(cursor)
 
     def make_debug_cursor(self, cursor):
         return util.CursorDebugWrapper(cursor, self)
+
+    def make_logging_cursor(self, cursor):
+        return util.CursorLoggingWrapper(cursor, self)
 
 class BaseDatabaseFeatures(object):
     allows_group_by_pk = False

@@ -9,6 +9,8 @@ class Command(BaseCommand):
             help='Tells Django to NOT use the auto-reloader.'),
         make_option('--adminmedia', dest='admin_media_path', default='',
             help='Specifies the directory from which to serve admin media.'),
+        make_option('--loglevel', dest='log_levels', action='append',
+            help='Set the minimum log level to be displayed at the console'),
     )
     help = "Starts a lightweight Web server for development."
     args = '[optional port number, or ipaddr:port]'
@@ -39,11 +41,33 @@ class Command(BaseCommand):
         use_reloader = options.get('use_reloader', True)
         admin_media_path = options.get('admin_media_path', '')
         shutdown_message = options.get('shutdown_message', '')
+        log_levels = options.get('log_levels', [])
         quit_command = (sys.platform == 'win32') and 'CTRL-BREAK' or 'CONTROL-C'
 
         def inner_run():
             from django.conf import settings
             from django.utils import translation
+
+            if log_levels:
+                from django.utils.log import logger as django_logger
+                import logging
+                django_logger.addHandler(logging.StreamHandler())
+                for log_level in log_levels:
+                    try:
+                        log_name, level = log_level.split(':')
+                    except ValueError:
+                        print "Invalid log level specified"
+                        sys.exit(1)
+                    if level.isdigit():
+                        level = int(level)
+                    else:
+                        level = getattr(logging, level.upper(), None)
+                        if level is None:
+                            print "Invalid log level: %s" % level
+                            sys.exit(1)
+                    logging.getLogger(log_name).setLevel(level)
+                    print "Logging: set %s to level %s" % (log_name, level)
+
             print "Validating models..."
             self.validate(display_num_errors=True)
             print "\nDjango version %s, using settings %r" % (django.get_version(), settings.SETTINGS_MODULE)

@@ -1,14 +1,47 @@
 import datetime
 from time import time
-
 from django.utils.hashcompat import md5_constructor
+import logging
+logger = logging.getLogger('django.db.sql')
 
 try:
     import decimal
 except ImportError:
     from django.utils import _decimal as decimal    # for Python 2.3
 
-class CursorDebugWrapper(object):
+class CursorWrapper(object):
+    def __init__(self, cursor, db):
+        self.cursor = cursor
+        self.db = db # Instance of a BaseDatabaseWrapper subclass
+
+    def __getattr__(self, attr):
+        if attr in self.__dict__:
+            return self.__dict__[attr]
+        else:
+            return getattr(self.cursor, attr)
+
+    def __iter__(self):
+        return iter(self.cursor)
+
+class CursorLoggingWrapper(CursorWrapper):
+    def execute(self, sql, params=()):
+        start = time()
+        try:
+            return self.cursor.execute(sql, params)
+        finally:
+            stop = time()
+            sql = self.db.ops.last_executed_query(self.cursor, sql, params)
+            logger.info('%.3fs:\t%s' % (stop - start, sql))
+
+    def executemany(self, sql, param_list):
+        start = time()
+        try:
+            return self.cursor.executemany(sql, param_list)
+        finally:
+            stop = time()
+            logger.info('%.3fs:\t%s' % (stop - start, sql))
+
+class CursorDebugWrapper(CursorWrapper):
     def __init__(self, cursor, db):
         self.cursor = cursor
         self.db = db # Instance of a BaseDatabaseWrapper subclass
@@ -24,6 +57,7 @@ class CursorDebugWrapper(object):
                 'sql': sql,
                 'time': "%.3f" % (stop - start),
             })
+            logger.info('%.3fs:\t%s' % (stop - start, sql))
 
     def executemany(self, sql, param_list):
         start = time()
@@ -35,15 +69,7 @@ class CursorDebugWrapper(object):
                 'sql': '%s times: %s' % (len(param_list), sql),
                 'time': "%.3f" % (stop - start),
             })
-
-    def __getattr__(self, attr):
-        if attr in self.__dict__:
-            return self.__dict__[attr]
-        else:
-            return getattr(self.cursor, attr)
-
-    def __iter__(self):
-        return iter(self.cursor)
+            logger.info('%.3fs:\t%s' % (stop - start, sql))
 
 ###############################################
 # Converters from database (string) to Python #
