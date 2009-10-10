@@ -108,6 +108,10 @@ class Settings(object):
             os.environ['TZ'] = self.TIME_ZONE
             time.tzset()
 
+        if getattr(self, 'LOGGING', None):
+            from django.utils import log
+            log.configure_from_dict(self.LOGGING)
+
     def get_all_members(self):
         return dir(self)
 
